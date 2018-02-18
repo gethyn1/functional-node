@@ -38,21 +38,17 @@ const openConnections = (databases, mongoClient) => {
 
 // initializeDatabases :: (Object, Object) -> Task -> Result
 const initializeDatabases = (databases, mongoClient) =>
-  task(resolver => {
-    waitAll(openConnections(databases, mongoClient)).run().listen({
-      onRejected: (error) => resolver.reject(Result.Error(error)),
-      onResolved: (data) => resolver.resolve(Result.Ok(defineConnections(data))),
-    })
-  })
+  task(resolver => waitAll(openConnections(databases, mongoClient)).run().listen({
+    onRejected: (error) => resolver.reject(Result.Error(error)),
+    onResolved: (data) => resolver.resolve(Result.Ok(defineConnections(data))),
+  }))
 
 // disconnectDatabases :: Object -> Task -> Result
 const disconnectDatabases = (dbs) =>
-  task(resolver => {
-    waitAll(closeConnections(dbs)).run().listen({
-      onRejected: (error) => resolver.reject(Result.Error(error)),
-      onResolved: (data) => resolver.resolve(Result.Ok('Databases disconnected')),
-    })
-  })
+  task(resolver => waitAll(closeConnections(dbs)).run().listen({
+    onRejected: (error) => resolver.reject(Result.Error(error)),
+    onResolved: (data) => resolver.resolve(Result.Ok('Databases disconnected')),
+  }))
 
 export {
   fromPairs,
