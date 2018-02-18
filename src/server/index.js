@@ -3,7 +3,6 @@ import './dotenv'
 /* eslint-disable import/first */
 
 import express from 'express'
-import { Server } from 'http'
 import { MongoClient } from 'mongodb'
 import { curry } from 'ramda'
 
@@ -14,15 +13,14 @@ import userRoutes from '../routes/users'
 // import robotsTxtRoute from '../routes/robots'
 
 const app = express()
-const http = Server(app)
 
 const initializeApp = (app, dbs) => {
   applyMiddleware(app)
   userRoutes(app, dbs, config)
 
-  http.listen(config.WEB_PORT, () => {
+  app.listen(config.WEB_PORT, () => {
     // eslint-disable-next-line no-console
-    console.log(`Server running on port ${String(config.WEB_PORT)} ${config.IS_PROD ? '(production)' :
+    console.log(`Server running on port ${config.WEB_PORT} ${config.IS_PROD ? '(production)' :
       '(development)'}.`)
   })
 
@@ -34,7 +32,8 @@ const initializeApp = (app, dbs) => {
   )
 }
 
-initializeDatabases({ userapp: config.MONGODB_URI }, MongoClient).run().listen({
-  onRejected: (error) => error.map(console.log),
-  onResolved: (data) => data.map(curry(initializeApp)(app)),
-})
+initializeDatabases({ userapp: config.MONGODB_URI }, MongoClient)
+  .run().listen({
+    onRejected: (error) => error.map(console.log),
+    onResolved: (data) => data.map(curry(initializeApp)(app)),
+  })
