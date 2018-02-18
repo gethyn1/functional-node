@@ -12,7 +12,7 @@ import { Server } from 'http'
 import { MongoClient } from 'mongodb'
 import { curry } from 'ramda'
 
-import { initializeDatabases, disconnectDatabases } from './db2'
+import { initializeDatabases, disconnectDatabases } from './db'
 import config from '../config'
 import userRoutes from '../routes/users'
 // import robotsTxtRoute from '../routes/robots'
@@ -43,7 +43,7 @@ if (isProd) {
     delayMs: 0, // disable delaying - full speed until the max limit is reached
   })
 
-  //  apply to all requests
+  // apply to all requests
   app.use(limiter)
 }
 
@@ -57,10 +57,6 @@ app.all('*', function(req, res, next) {
 const initializeApp = (app, dbs) => {
   userRoutes(app, dbs, config)
 
-  disconnectDatabases(dbs)
-    .then((data) => console.log(data))
-    .catch(err => console.log(err))
-
   http.listen(WEB_PORT, () => {
     // eslint-disable-next-line no-console
     console.log(`Server running on port ${String(WEB_PORT)} ${isProd ? '(production)' :
@@ -68,20 +64,14 @@ const initializeApp = (app, dbs) => {
   })
 
   process.on('SIGINT', () =>
-    disconnectDatabases(dbs)
-      .then(() => process.exit(1))
-      .catch(err => console.log(err))
+    disconnectDatabases(dbs).run().listen({
+      onRejected: (error) => error.map(console.log),
+      onResolved: (data) => data.map(console.log),
+    })
   )
 }
 
-// initializeDatabases({ userapp: config.MONGODB_URI }, MongoClient)
-//   .then(curry(initializeApp)(app))
-//   .catch((err) => {
-//     console.log(err)
-//     process.exit(1)
-//   })
-
 initializeDatabases({ userapp: config.MONGODB_URI }, MongoClient).run().listen({
-  onRejected: (error) => data.map(console.log),
+  onRejected: (error) => error.map(console.log),
   onResolved: (data) => data.map(curry(initializeApp)(app)),
 })

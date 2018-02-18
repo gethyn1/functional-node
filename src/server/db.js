@@ -1,5 +1,6 @@
-import Promise from 'bluebird'
 import { apply, compose, curry, map, merge, reduce, reverse, head, toPairs } from 'ramda'
+import { task, waitAll } from 'folktale/concurrency/task'
+import Result from 'folktale/result'
 
 // fromPairs :: (Object, [a, b]) -> Object
 const fromPairs = (acc, value) => merge(acc, { [value[0]]: value[1] })
@@ -10,18 +11,22 @@ const defineConnections = reduce(fromPairs, {})
 // getConnections :: Object -> [a]
 const getConnections = compose(map(compose(head, reverse)), toPairs)
 
-// closeConnection :: Object -> null
-const closeConnection = client => client.close()
+// closeConnection :: Object -> Task
+const closeConnection = client =>
+  task(resolver => {
+    client.close()
+    resolver.resolve()
+  })
 
 // closeConnections :: Object -> null
 const closeConnections = compose(map(closeConnection), getConnections)
 
-// connectDatabase :: (Object, String, String) -> Promise
+// connectDatabase :: (Object, String, String) -> Task
 const connectDatabase = curry((mongoClient, name, uri) =>
-  new Promise((resolve, reject) => {
+  task(resolver => {
     mongoClient.connect(uri, (err, client) => {
-      if (err) return reject(err)
-      resolve([name, client])
+      if (err) return resolver.reject(err)
+      resolver.resolve([name, client])
     })
   }))
 
@@ -31,17 +36,23 @@ const openConnections = (databases, mongoClient) => {
   return compose(map(apply(curry(connectClient))), toPairs)(databases)
 }
 
-// initializeDatabases :: (Object, Object) -> Promise
+// initializeDatabases :: (Object, Object) -> Task -> Result
 const initializeDatabases = (databases, mongoClient) =>
-  Promise.all(openConnections(databases, mongoClient))
-    .then((data) => Promise.resolve(defineConnections(data)))
-    .catch(err => Promise.reject(err))
+  task(resolver => {
+    waitAll(openConnections(databases, mongoClient)).run().listen({
+      onRejected: (error) => resolver.reject(Result.Error(error)),
+      onResolved: (data) => resolver.resolve(Result.Ok(defineConnections(data))),
+    })
+  })
 
-// disconnectDatabases :: Object -> Promise
+// disconnectDatabases :: Object -> Task -> Result
 const disconnectDatabases = (dbs) =>
-  Promise.all(closeConnections(dbs))
-    .then((data) => Promise.resolve('Databases disconnected'))
-    .catch(err => Promise.reject(err))
+  task(resolver => {
+    waitAll(closeConnections(dbs)).run().listen({
+      onRejected: (error) => resolver.reject(Result.Error(error)),
+      onResolved: (data) => resolver.resolve(Result.Ok('Databases disconnected')),
+    })
+  })
 
 export {
   fromPairs,

@@ -25,7 +25,7 @@ describe('getConnections()', () => {
 describe('closeConnection()', () => {
   it('should call the close method on the connection argument', () => {
     const close = jest.fn()
-    closeConnection({ close })
+    closeConnection({ close }).run()
     expect(close).toHaveBeenCalled()
   })
 })
