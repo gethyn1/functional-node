@@ -1,3 +1,3 @@
-# House of Kiki Home API
+# Functional node
 
-Node JS and Express API interacting with MongoDB database
+Node JS and Express API built with Folktale and Ramda

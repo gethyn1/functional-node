@@ -1,7 +1,7 @@
 {
-  "name": "userapp-api",
+  "name": "functional-node",
   "version": "1.0.0",
-  "description": "House of Kiki Home API",
+  "description": "Functional node",
   "main": "index.js",
   "license": "MIT",
   "engines": {
