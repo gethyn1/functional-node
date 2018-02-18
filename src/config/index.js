@@ -5,6 +5,6 @@ export default {
   BASE_PATH: '',
   MONGODB_URI: process.env.MONGODB_URI,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
-  isProd: process.env.NODE_ENV === 'production',
+  IS_PROD: process.env.NODE_ENV === 'production',
   DEBUG: false,
 }
