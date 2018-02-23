@@ -4,19 +4,18 @@ import './dotenv'
 
 import express from 'express'
 import { MongoClient } from 'mongodb'
-import { curry } from 'ramda'
-
+import { curry, map } from 'ramda'
 import config from '../config'
 import { initializeDatabases, disconnectDatabases } from './db'
 import { applyMiddleware } from './middleware'
-import userRoutes from '../routes/users'
+import createUserRoutes from '../routes/users'
 // import robotsTxtRoute from '../routes/robots'
 
-const app = express()
+const logError = error => error.mapError(console.log)
 
-const initializeApp = (app, dbs) => {
+const initializeApp = (config, app, dbs) => {
   applyMiddleware(app)
-  userRoutes(app, dbs, config)
+  createUserRoutes(config, dbs, app)
 
   app.listen(config.WEB_PORT, () => {
     // eslint-disable-next-line no-console
@@ -26,14 +25,16 @@ const initializeApp = (app, dbs) => {
 
   process.on('SIGINT', () =>
     disconnectDatabases(dbs).run().listen({
-      onRejected: (error) => error.map(console.log),
-      onResolved: (data) => data.map(console.log),
+      onRejected: logError,
+      onResolved: map(console.log),
     })
   )
 }
 
+const buildApp = curry(initializeApp)(config, express())
+
 initializeDatabases({ userapp: config.MONGODB_URI }, MongoClient)
   .run().listen({
-    onRejected: (error) => error.map(console.log),
-    onResolved: (data) => data.map(curry(initializeApp)(app)),
+    onRejected: logError,
+    onResolved: map(buildApp),
   })
