@@ -14,7 +14,7 @@
     "prod:build": "rimraf lib dist && babel src -d lib --ignore .test.js && cross-env NODE_ENV=production",
     "prod:start": "cross-env NODE_ENV=production heroku local",
     "lint": "eslint src webpack.config.babel.js --ext .js,.jsx",
-    "test": "yarn lint && jest --coverage",
+    "test": "yarn lint && jest --coverage --forceExit",
     "test:watch": "jest --watch",
     "heroku-postbuild": "yarn prod:build",
     "precommit": "yarn test",
