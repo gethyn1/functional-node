@@ -3,44 +3,62 @@ import compression from 'compression'
 import helmet from 'helmet'
 import morgan from 'morgan'
 import RateLimit from 'express-rate-limit'
-import { IS_PROD, CORS_WEB_APP_ORIGIN, DEBUG } from '../config'
+import { compose, curry, toPairs } from 'ramda'
+import { IS_PROD, CORS_WEB_APP_ORIGIN } from '../config'
+import { RATE_LIMIT, TRUST_PROXY, MORGAN, CORS_METHODS, CORS_HEADERS } from './constants'
 
-const applyMiddleware = (app) => {
-  app.use(bodyParser.json())
-  app.use(bodyParser.urlencoded({ extended: false }))
+/**
+ * TO DO:
+ *
+ * A lot of these functions are impure as they have side effects on the app
+ * object. How should we deal with these?
+ */
 
-  // Debugging with morgan
-  if (!IS_PROD && DEBUG) {
-    app.use(morgan('combined'))
-  }
+const apply = curry((method, applicative, app) => app[method](applicative))
 
-  // Express security with helmet module
-  app.use(helmet())
+const use = apply('use')
 
-  // Rate limiting
-  if (IS_PROD) {
-    app.enable('trust proxy')
+const enable = apply('enable')
 
-    const limiter = new RateLimit({
-      windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 100, // limit each IP to 100 requests per windowMs
-      delayMs: 0, // disable delaying - full speed until the max limit is reached
-    })
+const useInEnvironment = curry((environment, fn, app) =>
+  environment ? use(fn, app) : app)
 
-    // apply to all requests
-    app.use(limiter)
-  }
+const enableInEnvironment = curry((environment, setting, app) =>
+  environment ? use(setting, app) : app)
 
-  // Setup CORS so front-end app can access the API
-  app.all('*', function(req, res, next) {
-    res.header('Access-Control-Allow-Origin', CORS_WEB_APP_ORIGIN)
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
-    next()
-  })
+const useInDevelopment = useInEnvironment(!IS_PROD)
 
-  return app
+const useInProduction = useInEnvironment(IS_PROD)
+
+const enableInProduction = enableInEnvironment(IS_PROD)
+
+const setHeader = curry((res, header) => res.header(header[0], header[1]))
+
+const setHeaders = (res, headers) => compose(setHeader(res), toPairs)
+
+const setCORSResponse = (req, res, next) => {
+  setHeaders(res, CORS_HEADERS)
+  next()
 }
 
+const applyCORS = curry((origin, app) => {
+  app.all(CORS_METHODS, setCORSResponse)
+  return app
+})
+
+const applyMiddleware = compose(
+  applyCORS(CORS_WEB_APP_ORIGIN),
+  useInProduction(new RateLimit(RATE_LIMIT)),
+  enableInProduction(TRUST_PROXY),
+  use(helmet()),
+  useInDevelopment(morgan(MORGAN)),
+  use(bodyParser.urlencoded({ extended: false })),
+  use(bodyParser.json())
+)
+
 export {
+  use,
+  enable,
+  useInEnvironment,
   applyMiddleware,
 }
