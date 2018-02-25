@@ -4,37 +4,47 @@ import './dotenv'
 
 import express from 'express'
 import { MongoClient } from 'mongodb'
-import { curry, map } from 'ramda'
+import { __, curry, map } from 'ramda'
+import { task } from 'folktale/concurrency/task'
 import config from '../config'
 import { initializeDatabases, disconnectDatabases } from './db'
 import { applyMiddleware } from './middleware'
-import createUserRoutes from '../routes/users'
+import userRoutes from '../routes/users'
 // import robotsTxtRoute from '../routes/robots'
 
-const logError = error => error.mapError(console.log)
+const { WEB_PORT, IS_PROD } = config
 
-const initializeApp = (config, app, dbs) => {
-  applyMiddleware(app)
-  createUserRoutes(config, dbs, app)
+const logStatus = console.log
 
-  app.listen(config.WEB_PORT, () => {
-    // eslint-disable-next-line no-console
-    console.log(`Server running on port ${config.WEB_PORT} ${config.IS_PROD ? '(production)' :
-      '(development)'}.`)
-  })
+const setupRoutes = curry((config, dbs, app) => {
+  userRoutes(config, dbs, app)
+  return app
+})
 
-  process.on('SIGINT', () =>
-    disconnectDatabases(dbs).run().listen({
-      onRejected: logError,
-      onResolved: map(console.log),
+const applyRoutes = setupRoutes(config, __, express())
+
+const listen = curry((port, isProd, app) =>
+  task(resolver => {
+    app.listen(port, () => {
+      resolver.resolve(`Server running on port ${port} ${isProd ? '(production)' : '(development)'}.`)
     })
-  )
-}
-
-const buildApp = curry(initializeApp)(config, express())
-
-initializeDatabases({ userapp: config.MONGODB_URI }, MongoClient)
-  .run().listen({
-    onRejected: logError,
-    onResolved: map(buildApp),
   })
+)
+
+const runApp = app =>
+  app.run().listen({
+    onRejected: logStatus,
+    onResolved: logStatus,
+  })
+
+const runInitializeDatabases = initializeDatabases({
+  userapp: config.MONGODB_URI,
+}, MongoClient).run()
+
+runInitializeDatabases
+  .future()
+  .mapRejected(logStatus)
+  .map(applyRoutes)
+  .map(applyMiddleware)
+  .map(listen(WEB_PORT, IS_PROD))
+  .map(runApp)
