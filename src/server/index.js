@@ -16,6 +16,7 @@ const { WEB_PORT, IS_PROD } = config
 
 const logStatus = console.log
 
+// setupRoutes :: (Object, Object, Object) -> Object
 const setupRoutes = curry((config, dbs, app) => {
   userRoutes(config, dbs, app)
   return app
@@ -23,6 +24,7 @@ const setupRoutes = curry((config, dbs, app) => {
 
 const applyRoutes = setupRoutes(config, __, express())
 
+// setupRoutes :: (String, Boolean, Object) -> Task
 const listenOnPort = curry((port, isProd, app) =>
   task(resolver => {
     app.listen(port, () => {
